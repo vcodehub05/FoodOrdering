@@ -1,2 +1,0 @@
-# FoodOrdering
-Food ordering application
