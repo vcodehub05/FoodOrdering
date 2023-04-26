@@ -8,9 +8,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"os"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
+func init() {
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false})
+}
 func main() {
 	ctx := context.Background()
 	opt := mongo.CreateMongoOption("vivekk", "UqqVDqz7OPMgYiwn")
@@ -28,26 +35,43 @@ func main() {
 
 	ch, err := rabbitMQsvc.CreateChannel()
 	if err != nil {
-		fmt.Println("error", err)
+		log.Err(fmt.Errorf("failed to create channel %w", err))
 		return
 	}
 	q, err := rabbitMQsvc.CreateQueue(ch)
 	if err != nil {
+		log.Err(fmt.Errorf("failed to create queue %w", err))
 		return
 	}
-	// Consume messages from the queue
-	messages, err := rabbitMQsvc.Consume(ch, q.Name)
+	prefetchCount := 2
+	err = ch.Qos(prefetchCount, 0, false)
 	if err != nil {
-		log.Fatalf("Failed to consume messages from the queue: %s", err)
+		log.Err(fmt.Errorf("Failed to set QoS: %w", err))
 	}
-	for message := range messages {
-		var order model.Order
-		json.Unmarshal(message.Body, &order)
-		order.Status = "rececived"
-		_, err := mongosvc.Order().Create(collection, ctx, order)
-		if err != nil {
-			fmt.Printf("err%v", err)
-		}
+	numMsgs := q.Messages
+	// Launch multiple consumers to handle messages
+	numConsumers := numMsgs / prefetchCount
+	if numMsgs <= 1 {
+		numConsumers = 1
 	}
-
+	for i := 0; i < numConsumers; i++ {
+		go func(workerNum int) {
+			// Consume messages from queue
+			messages, err := rabbitMQsvc.Consume(ch, q.Name)
+			if err != nil {
+				log.Err(fmt.Errorf("Failed to consume messages from the queue: %v", err))
+			}
+			for message := range messages {
+				var order model.Order
+				json.Unmarshal(message.Body, &order)
+				order.Status = "rececived"
+				_, err := mongosvc.Order().Create(collection, ctx, order)
+				if err != nil {
+					log.Err(fmt.Errorf("Failed to insert in db: %v", err))
+				}
+			}
+		}(i)
+	}
+	// Wait for goroutines to finish
+	select {}
 }
