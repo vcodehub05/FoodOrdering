@@ -1,0 +1,23 @@
+# Server Configuration
+server:
+  host: "localhost"
+  http:
+    port: 8081
+
+# Database Credentials
+database:
+  name: "foodApp"
+  collection: "order"
+  user: "vivekk"
+  password: "UqqVDqz7OPMgYiwn"
+  uri: "mongodb+srv://%s:%s@cluster0.oldl3xt.mongodb.net/?retryWrites=true&w=majority"
+
+#RabbitMq
+rabbitmq:
+  prefetch-count: 1
+  go-routine-limit: 1000
+  queue-name: "myQueue"
+  connection-url: "amqp://guest:guest@localhost:5672/"
+
+
+

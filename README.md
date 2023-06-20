@@ -1,3 +1,7 @@
 # Food Ordering application
 # go version go1.19.5
-# RabbitMq is used as message broker
+# RabbitMQ version 3.9.13
+# To run application- 
+  # go run application/customer/*.go 
+  # go run application/resturant/*.go;
+
